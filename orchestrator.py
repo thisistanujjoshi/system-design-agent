@@ -3,7 +3,6 @@ import json
 
 from agents import requirements, scale, domain, architecture, tech_selection, critic, explain
 from diagram import to_mermaid
-from models import DesignState
 
 MAX_REVISIONS = 3
 
@@ -25,26 +24,20 @@ def format_issues(issues: list[dict]) -> str:
     )
 
 
-def run_pipeline(query: str) -> DesignState:
-    state = DesignState(query=query)
-
+def run_pipeline(query: str) -> None:
     print(f"\n=== Requirements ===")
     req = requirements.run(query)
     if req["clarifying_questions"]:
         qa_context = ask_clarifying_questions(req["clarifying_questions"])
         req = requirements.run(query, qa_context=qa_context)
-    state.functional_requirements = req["functional_requirements"]
-    state.non_functional_requirements = req["non_functional_requirements"]
     print(json.dumps(req, indent=2))
 
     print(f"\n=== Scale Estimate ===")
     sc = scale.run(query, req)
-    state.scale_estimate = sc
     print(json.dumps(sc, indent=2))
 
     print(f"\n=== Domain Analysis ===")
     dm = domain.run(query, req)
-    state.domain_notes = dm
     print(json.dumps(dm, indent=2))
 
     critique_history = []
@@ -76,11 +69,6 @@ def run_pipeline(query: str) -> DesignState:
     else:
         print(f"\nHit max revisions ({MAX_REVISIONS}) — proceeding with the last design.")
 
-    state.architecture = arch
-    state.tech_choices = tech
-    state.critiques = critique_history
-    state.revision_count = len(critique_history) - 1
-
     print(f"\n=== Final Explanation ===")
     result = explain.run(query, req, sc, dm, arch, tech, critique_history)
 
@@ -101,8 +89,6 @@ def run_pipeline(query: str) -> DesignState:
         f.write(mermaid)
         f.write("\n```\n")
     print("\n(Full write-up saved to design_output.md)")
-
-    return state
 
 
 if __name__ == "__main__":
