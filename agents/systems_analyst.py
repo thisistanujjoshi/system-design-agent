@@ -1,6 +1,9 @@
-from common import call_structured
+from common import call_structured, SONNET
+from company import Company
 
-SYSTEM = """You are the Scale/Capacity Agent in a system design reasoning pipeline. Given a \
+ROLE = "Systems Analyst"
+
+SYSTEM = """You are the Systems Analyst in a system design reasoning company. Given a \
 problem statement and its requirements, you do back-of-the-envelope capacity estimation like a \
 staff engineer: reads/writes per second, storage growth, bandwidth, and peak-vs-average load. \
 Show your assumptions explicitly (e.g. "assume 100M DAU, 5% post daily") since the numbers matter \
@@ -38,17 +41,24 @@ SCHEMA = {
 }
 
 
-def run(query: str, requirements: dict) -> dict:
+def run(company: Company) -> dict:
+    requirements = company.read("requirements")
     user = (
-        f"Problem: {query}\n\n"
+        f"Problem: {company.query}\n\n"
         f"Functional requirements: {requirements.get('functional_requirements')}\n"
         f"Non-functional requirements: {requirements.get('non_functional_requirements')}"
     )
-    return call_structured(
+    # Bumped to Sonnet: the eval harness scored this agent's estimates 3/5 ("scale_soundness")
+    # on Haiku across every problem tested — this is the one step where numerical rigor matters
+    # most and is worth the extra cost.
+    result = call_structured(
         system=SYSTEM,
         user=user,
         tool_name="submit_scale_estimate",
         tool_description="Submit the capacity/scale estimate.",
         input_schema=SCHEMA,
+        model=SONNET,
         max_tokens=4096,
     )
+    company.publish(ROLE, "scale", result)
+    return result

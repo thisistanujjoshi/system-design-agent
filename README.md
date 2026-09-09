@@ -1,9 +1,10 @@
 # System Design Reasoning Agent
 
-A multi-agent pipeline that takes a one-line system design prompt (e.g. "design a URL shortener")
-and reasons through it the way a staff engineer would in an interview: extracting requirements,
-estimating scale, proposing an architecture, picking real technologies, critiquing its own design,
-and revising before producing a final write-up.
+A small virtual company of Claude agents, each with a real engineering-org role, that takes a
+one-line system design prompt (e.g. "design a URL shortener") and reasons through it the way a
+staff engineer would in an interview: extracting requirements, estimating scale, proposing an
+architecture, picking real technologies, critiquing its own design, and revising before producing
+a final write-up.
 
 Built as a learning project while preparing for software engineering roles — specifically to get
 hands-on with agentic pipeline design (structured multi-step LLM orchestration, not just a single
@@ -15,31 +16,34 @@ prompt) rather than just reading about it.
 User query
     |
     v
-Requirements Agent -----> clarifying questions (asked interactively), functional/non-functional reqs
+Product Manager -----> clarifying questions (asked interactively), functional/non-functional reqs
     |
     v
-Scale Agent -------------> back-of-the-envelope QPS/storage/bandwidth estimates
+Systems Analyst ------> back-of-the-envelope QPS/storage/bandwidth estimates
     |
     v
-Domain Agent -------------> domain-specific constraints (ordering, consistency, geospatial, etc.)
+Domain Expert --------> domain-specific constraints (ordering, consistency, geospatial, etc.)
     |
     v
-+-----------------------------------------------+
-| Architecture Agent -> Tech Selection -> Critic |  <- loops up to 3x, critic decides
-+-----------------------------------------------+     revise or approve
++-----------------------------------------+
+| Architect -> Tech Lead -> Staff Reviewer |  <- loops up to 3x, reviewer decides
++-----------------------------------------+     revise or approve
     |
     v
-Explanation Agent -------> final write-up + Mermaid diagram (design_output.md)
+Presenter -------------> final write-up + Mermaid diagram (design_output.md)
 ```
 
-Each agent is a single Claude API call, forced to respond via a tool call so the output is
-structured JSON rather than free text (`common.py`). The orchestrator (`orchestrator.py`) holds
-all shared state and drives the sequence — there's no agent framework in between; the orchestration
-logic is plain Python.
+Each role is a single Claude API call, forced to respond via a tool call so the output is
+structured JSON rather than free text (`common.py`). Roles don't call each other directly or
+receive their inputs as function arguments — they all read from and publish to one shared
+`Company` object (`company.py`), a plain dict-backed message board keyed by document type
+("requirements", "scale", "architecture", ...). The orchestrator (`orchestrator.py`) just tells
+each role when it's their turn; it never wires one role's output into the next role's input
+itself. That's the mechanism, not an agent framework — `Company` is ~15 lines.
 
-On each revision round, the Architecture Agent is shown its own previous output plus the critic's
-specific issues, and told to fix only what's broken — not regenerate the whole design from
-scratch — so earlier fixes don't get silently lost in later rounds.
+On each revision round, the Architect is shown its own previous output (read straight off the
+board) plus the reviewer's specific issues, and told to fix only what's broken — not regenerate
+the whole design from scratch — so earlier fixes don't get silently lost in later rounds.
 
 ## Setup
 
@@ -67,9 +71,25 @@ saved to `design_output.md`.
 
 ## Notes
 
-- Uses `claude-haiku-4-5` by default to keep costs low during iteration — cheap enough to run
-  many designs for a few cents each.
-- The critic is capped at 3 issues per round and instructed to stay at "whiteboard" severity
-  (architecturally significant problems only, not implementation-level nitpicks like exact retry
-  counts or SQL injection prevention) — otherwise it never converges to "approve" within the
-  revision budget.
+- Mixed-tier model selection: the Product Manager, Domain Expert, and Presenter run on
+  `claude-haiku-4-5` (cheap, and already scored well on these in the eval harness — see below).
+  The Systems Analyst, Architect, Tech Lead, and Staff Reviewer run on `claude-sonnet-5` — these
+  are the reasoning-heavy roles, and the harness showed Haiku underperforming specifically on
+  scale soundness and tech-choice justification.
+- The Staff Reviewer is capped at 3 issues per round and instructed to stay at "whiteboard"
+  severity (architecturally significant problems only, not implementation-level nitpicks like
+  exact retry counts or SQL injection prevention) — otherwise it never converges to "approve"
+  within the revision budget.
+- The Systems Analyst and Domain Expert run concurrently (both only need Requirements off the
+  board, not each other's output); the Architect → Tech Lead → Staff Reviewer loop stays
+  sequential since each round depends on the previous one's output.
+
+## Eval harness
+
+`python -m eval.run_eval` runs the pipeline over a fixed, non-interactive problem set (see
+`eval/problems.py`) and scores each finished design with an LLM judge (`eval/judge.py`, a
+different/stronger model than the pipeline itself) across six dimensions — requirements
+coverage, scale soundness, domain awareness, tech justification, critique quality, and narrative
+clarity — plus a holistic "would this pass a real interview" verdict. Results are saved to
+`eval/results/<timestamp>.json` so pipeline or prompt changes can be checked against a repeatable
+baseline instead of eyeballing one or two example runs.

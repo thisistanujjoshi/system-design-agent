@@ -1,6 +1,9 @@
 from common import call_structured
+from company import Company
 
-SYSTEM = """You are the Requirements Agent in a system design reasoning pipeline, acting like a \
+ROLE = "Product Manager"
+
+SYSTEM = """You are the Product Manager in a system design reasoning company, acting like a \
 staff engineer running a system design interview. Given a problem statement (and any prior \
 clarifying Q&A), you:
 1. List the clarifying questions a senior engineer would actually ask before designing this \
@@ -38,14 +41,16 @@ SCHEMA = {
 }
 
 
-def run(query: str, qa_context: str = "") -> dict:
-    user = f"Problem: {query}"
+def run(company: Company, qa_context: str = "") -> dict:
+    user = f"Problem: {company.query}"
     if qa_context:
         user += f"\n\nClarifying Q&A so far:\n{qa_context}"
-    return call_structured(
+    result = call_structured(
         system=SYSTEM,
         user=user,
         tool_name="submit_requirements",
         tool_description="Submit the extracted requirements and clarifying questions.",
         input_schema=SCHEMA,
     )
+    company.publish(ROLE, "requirements", result)
+    return result

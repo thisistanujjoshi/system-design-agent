@@ -1,6 +1,9 @@
-from common import call_structured
+from common import call_structured, SONNET
+from company import Company
 
-SYSTEM = """You are the Design Critic Agent in a system design reasoning pipeline — a skeptical \
+ROLE = "Staff Reviewer"
+
+SYSTEM = """You are the Staff Reviewer in a system design reasoning company — a skeptical \
 staff engineer reviewing a design at INTERVIEW-WHITEBOARD level, not doing a production code \
 review. Find real, architecturally significant problems: single points of failure, bottlenecks \
 under the stated scale, consistency/availability tradeoffs that weren't justified, a missing \
@@ -47,9 +50,14 @@ SCHEMA = {
 }
 
 
-def run(query: str, requirements: dict, scale: dict, domain: dict, architecture: dict, tech: dict) -> dict:
+def run(company: Company) -> dict:
+    requirements = company.read("requirements")
+    scale = company.read("scale")
+    domain = company.read("domain")
+    architecture = company.read("architecture")
+    tech = company.read("tech")
     user = (
-        f"Problem: {query}\n\n"
+        f"Problem: {company.query}\n\n"
         f"Non-functional requirements: {requirements.get('non_functional_requirements')}\n\n"
         f"Scale estimate: {scale.get('estimates')}\n"
         f"Peak/average: {scale.get('peak_to_average_ratio')}\n\n"
@@ -58,11 +66,17 @@ def run(query: str, requirements: dict, scale: dict, domain: dict, architecture:
         f"Connections: {architecture.get('connections')}\n\n"
         f"Technology choices: {tech.get('choices')}"
     )
-    return call_structured(
+    # Bumped to Sonnet: a critic is only as useful as its ability to catch real issues — grading
+    # the pipeline's own output with the same tier that produced it is a weaker check than
+    # grading it with a stronger one.
+    result = call_structured(
         system=SYSTEM,
         user=user,
         tool_name="submit_critique",
         tool_description="Submit the design critique and verdict.",
         input_schema=SCHEMA,
+        model=SONNET,
         max_tokens=4096,
     )
+    company.publish(ROLE, "critique", result)
+    return result

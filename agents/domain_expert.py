@@ -1,6 +1,9 @@
 from common import call_structured
+from company import Company
 
-SYSTEM = """You are the Domain Agent in a system design reasoning pipeline. Given a problem \
+ROLE = "Domain Expert"
+
+SYSTEM = """You are the Domain Expert in a system design reasoning company. Given a problem \
 statement and its requirements, you identify constraints and design implications that come \
 specifically from the DOMAIN of this problem — not generic distributed-systems concerns (those \
 are handled elsewhere). Examples of domain reasoning: a chat app needs message ordering and \
@@ -32,16 +35,19 @@ SCHEMA = {
 }
 
 
-def run(query: str, requirements: dict) -> dict:
+def run(company: Company) -> dict:
+    requirements = company.read("requirements")
     user = (
-        f"Problem: {query}\n\n"
+        f"Problem: {company.query}\n\n"
         f"Functional requirements: {requirements.get('functional_requirements')}\n"
         f"Non-functional requirements: {requirements.get('non_functional_requirements')}"
     )
-    return call_structured(
+    result = call_structured(
         system=SYSTEM,
         user=user,
         tool_name="submit_domain_analysis",
         tool_description="Submit the domain-specific constraints and tradeoffs.",
         input_schema=SCHEMA,
     )
+    company.publish(ROLE, "domain", result)
+    return result

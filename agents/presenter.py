@@ -1,6 +1,9 @@
 from common import call_structured
+from company import Company
 
-SYSTEM = """You are the Explanation Agent in a system design reasoning pipeline. Given the full \
+ROLE = "Presenter"
+
+SYSTEM = """You are the Presenter in a system design reasoning company. Given the full \
 design (requirements, scale, domain, final architecture, tech choices, and a summary of what was \
 revised during critique), write it up the way a staff engineer would present a final design in an \
 interview: crisp, confident, and honest about tradeoffs made. Cover: the problem restated in one \
@@ -27,7 +30,12 @@ SCHEMA = {
 }
 
 
-def run(query: str, requirements: dict, scale: dict, domain: dict, architecture: dict, tech: dict, critique_history: list) -> dict:
+def run(company: Company, critique_history: list) -> dict:
+    requirements = company.read("requirements")
+    scale = company.read("scale")
+    domain = company.read("domain")
+    architecture = company.read("architecture")
+    tech = company.read("tech")
     # Only the final round's issues matter for "what's still a known tradeoff"; earlier rounds are
     # summarized to one line each so the input doesn't balloon the model into an exhaustive output.
     if critique_history:
@@ -42,7 +50,7 @@ def run(query: str, requirements: dict, scale: dict, domain: dict, architecture:
         earlier_summary, final_round = [], {}
 
     user = (
-        f"Problem: {query}\n\n"
+        f"Problem: {company.query}\n\n"
         f"Requirements: {requirements}\n\n"
         f"Scale: {scale}\n\n"
         f"Domain: {domain}\n\n"
@@ -51,7 +59,7 @@ def run(query: str, requirements: dict, scale: dict, domain: dict, architecture:
         f"Earlier revision rounds (one line each): {earlier_summary}\n"
         f"Final round's outstanding/just-fixed issues: {final_round}"
     )
-    return call_structured(
+    result = call_structured(
         system=SYSTEM,
         user=user,
         tool_name="submit_explanation",
@@ -59,3 +67,5 @@ def run(query: str, requirements: dict, scale: dict, domain: dict, architecture:
         input_schema=SCHEMA,
         max_tokens=8192,
     )
+    company.publish(ROLE, "explanation", result)
+    return result
