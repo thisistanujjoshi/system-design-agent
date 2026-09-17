@@ -38,6 +38,7 @@ SCHEMA = {
         "functional_requirements",
         "non_functional_requirements",
     ],
+    "additionalProperties": False,
 }
 
 
@@ -45,7 +46,7 @@ def run(company: Company, qa_context: str = "") -> dict:
     user = f"Problem: {company.query}"
     if qa_context:
         user += f"\n\nClarifying Q&A so far:\n{qa_context}"
-    result = call_structured(
+    result, meta = call_structured(
         system=SYSTEM,
         user=user,
         tool_name="submit_requirements",
@@ -53,4 +54,5 @@ def run(company: Company, qa_context: str = "") -> dict:
         input_schema=SCHEMA,
     )
     company.publish(ROLE, "requirements", result)
+    company.record_call(ROLE, meta)
     return result

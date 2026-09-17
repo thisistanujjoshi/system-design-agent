@@ -20,47 +20,41 @@ SCHEMA = {
             "properties": {
                 "requirements_coverage": {
                     "type": "integer",
-                    "minimum": 1,
-                    "maximum": 5,
+                    "enum": [1, 2, 3, 4, 5],
                     "description": "Does the architecture and tech selection actually address "
                     "the stated functional and non-functional requirements?",
                 },
                 "scale_soundness": {
                     "type": "integer",
-                    "minimum": 1,
-                    "maximum": 5,
+                    "enum": [1, 2, 3, 4, 5],
                     "description": "Are the capacity estimates reasonable, and is the "
                     "architecture appropriately sized for that scale (not over- or "
                     "under-engineered)?",
                 },
                 "domain_awareness": {
                     "type": "integer",
-                    "minimum": 1,
-                    "maximum": 5,
+                    "enum": [1, 2, 3, 4, 5],
                     "description": "Does the design actually address the domain-specific "
                     "constraints identified (ordering, consistency, geospatial, idempotency, "
                     "etc.), or are they just listed and then ignored?",
                 },
                 "tech_justification": {
                     "type": "integer",
-                    "minimum": 1,
-                    "maximum": 5,
+                    "enum": [1, 2, 3, 4, 5],
                     "description": "Are technology choices justified with genuine, "
                     "scale/domain-specific reasoning and a real alternative considered, or "
                     "generic 'it's popular' reasoning?",
                 },
                 "critique_quality": {
                     "type": "integer",
-                    "minimum": 1,
-                    "maximum": 5,
+                    "enum": [1, 2, 3, 4, 5],
                     "description": "Did the critic find real, architecturally significant "
                     "issues (if any existed), and did the revision genuinely fix them without "
                     "breaking other parts of the design?",
                 },
                 "narrative_clarity": {
                     "type": "integer",
-                    "minimum": 1,
-                    "maximum": 5,
+                    "enum": [1, 2, 3, 4, 5],
                     "description": "Is the final write-up clear, well-organized, and honest "
                     "about tradeoffs, the way a strong staff engineer would present it?",
                 },
@@ -73,6 +67,7 @@ SCHEMA = {
                 "critique_quality",
                 "narrative_clarity",
             ],
+            "additionalProperties": False,
         },
         "biggest_strength": {
             "type": "string",
@@ -90,10 +85,11 @@ SCHEMA = {
         },
     },
     "required": ["scores", "biggest_strength", "biggest_weakness", "would_pass_interview"],
+    "additionalProperties": False,
 }
 
 
-def run(query: str, design: dict) -> dict:
+def run(query: str, design: dict) -> tuple[dict, dict]:
     user = (
         f"Original problem: {query}\n\n"
         f"Requirements: {design['requirements']}\n\n"

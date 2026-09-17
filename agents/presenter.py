@@ -27,6 +27,7 @@ SCHEMA = {
         },
     },
     "required": ["summary", "narrative"],
+    "additionalProperties": False,
 }
 
 
@@ -59,7 +60,7 @@ def run(company: Company, critique_history: list) -> dict:
         f"Earlier revision rounds (one line each): {earlier_summary}\n"
         f"Final round's outstanding/just-fixed issues: {final_round}"
     )
-    result = call_structured(
+    result, meta = call_structured(
         system=SYSTEM,
         user=user,
         tool_name="submit_explanation",
@@ -68,4 +69,5 @@ def run(company: Company, critique_history: list) -> dict:
         max_tokens=8192,
     )
     company.publish(ROLE, "explanation", result)
+    company.record_call(ROLE, meta)
     return result

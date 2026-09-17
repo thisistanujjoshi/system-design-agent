@@ -58,6 +58,15 @@ CRITIQUES = [
 architecture_calls = []
 
 
+FAKE_META = {
+    "model": "fake",
+    "input_tokens": 10,
+    "output_tokens": 10,
+    "latency_ms": 1.0,
+    "cost_usd": 0.0,
+}
+
+
 def fake_call_structured(system, user, tool_name, tool_description, input_schema, **kwargs):
     if tool_name == "submit_architecture":
         architecture_calls.append(user)
@@ -65,10 +74,10 @@ def fake_call_structured(system, user, tool_name, tool_description, input_schema
             "components": [{"name": "DB", "type": "relational datastore", "responsibility": "store data"}],
             "connections": [],
             "primary_data_flows": [],
-        }
+        }, FAKE_META
     if tool_name == "submit_critique":
-        return CRITIQUES.pop(0)
-    return CANNED[tool_name]
+        return CRITIQUES.pop(0), FAKE_META
+    return CANNED[tool_name], FAKE_META
 
 
 ROLE_MODULES = [product_manager, systems_analyst, domain_expert, architect, tech_lead, reviewer, presenter]
@@ -96,6 +105,10 @@ def main() -> None:
     assert len(design["critique_history"]) == 2, "should revise once then approve"
     assert design["hit_max_revisions"] is False
     assert "DB" in design["mermaid"]
+    # 4 single-shot roles (PM, Systems Analyst, Domain Expert, Presenter) + 3 per-round roles
+    # (Architect, Tech Lead, Reviewer) x however many rounds ran.
+    rounds = len(architecture_calls)
+    assert design["metrics"]["call_count"] == 4 + 3 * rounds, "one record_call per API call"
 
     # Round 2's architecture call must have been shown round 1's own output (the shared-board
     # read), not regenerated from a blank slate.

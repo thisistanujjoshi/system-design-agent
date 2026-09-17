@@ -24,7 +24,8 @@ SCHEMA = {
     "properties": {
         "issues": {
             "type": "array",
-            "maxItems": 3,
+            # strict=True tool schemas don't support maxItems (400 invalid_request_error) — the
+            # 3-issue cap is enforced by the system prompt instruction instead.
             "items": {
                 "type": "object",
                 "properties": {
@@ -38,6 +39,7 @@ SCHEMA = {
                     },
                 },
                 "required": ["severity", "component", "problem", "suggested_fix"],
+                "additionalProperties": False,
             },
         },
         "verdict": {
@@ -47,6 +49,7 @@ SCHEMA = {
         },
     },
     "required": ["issues", "verdict"],
+    "additionalProperties": False,
 }
 
 
@@ -69,7 +72,7 @@ def run(company: Company) -> dict:
     # Bumped to Sonnet: a critic is only as useful as its ability to catch real issues — grading
     # the pipeline's own output with the same tier that produced it is a weaker check than
     # grading it with a stronger one.
-    result = call_structured(
+    result, meta = call_structured(
         system=SYSTEM,
         user=user,
         tool_name="submit_critique",
@@ -79,4 +82,5 @@ def run(company: Company) -> dict:
         max_tokens=4096,
     )
     company.publish(ROLE, "critique", result)
+    company.record_call(ROLE, meta)
     return result

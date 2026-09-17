@@ -83,13 +83,31 @@ saved to `design_output.md`.
 - The Systems Analyst and Domain Expert run concurrently (both only need Requirements off the
   board, not each other's output); the Architect → Tech Lead → Staff Reviewer loop stays
   sequential since each round depends on the previous one's output.
+- Every tool call uses `strict: true` (Claude API structured-output validation) — forcing a tool
+  call with `tool_choice` alone doesn't guarantee every required field is present, and running the
+  eval harness enough times surfaced exactly that: a `KeyError` from a Reviewer response that
+  skipped its required `verdict` field. See [EVAL.md](EVAL.md) for the full story.
 
 ## Eval harness
 
 `python -m eval.run_eval` runs the pipeline over a fixed, non-interactive problem set (see
-`eval/problems.py`) and scores each finished design with an LLM judge (`eval/judge.py`, a
-different/stronger model than the pipeline itself) across six dimensions — requirements
-coverage, scale soundness, domain awareness, tech justification, critique quality, and narrative
-clarity — plus a holistic "would this pass a real interview" verdict. Results are saved to
-`eval/results/<timestamp>.json` so pipeline or prompt changes can be checked against a repeatable
-baseline instead of eyeballing one or two example runs.
+`eval/problems.py`) and measures it on five axes instead of "it works":
+
+- **Reliability** — did the pipeline complete without crashing.
+- **Quality** — an LLM judge (`eval/judge.py`, a stronger model than the pipeline it grades) scores
+  six dimensions 1-5 (requirements coverage, scale soundness, domain awareness, tech justification,
+  critique quality, narrative clarity) plus a holistic "would this pass a real interview" verdict.
+- **Accuracy** — `eval/accuracy.py` runs deterministic referential-integrity checks (no LLM call)
+  against the pipeline's own structured output: do connections/tech choices/critique issues
+  actually reference components that exist, and does the Reviewer's verdict match its own stated
+  policy.
+- **Hallucination rate** — `eval/hallucination.py` checks whether the final write-up names a
+  technology that was never actually selected or considered anywhere upstream (also no LLM call).
+- **Latency & cost per request** — every agent call now returns token/latency/cost metadata
+  (`common.py`), aggregated per pipeline run (`orchestrator.py`) into wall-clock latency and $ cost
+  using published Haiku 4.5 / Sonnet 5 pricing.
+
+Results are saved to `eval/results/<timestamp>.json` so pipeline or prompt changes can be checked
+against a repeatable baseline instead of eyeballing one or two example runs. See **[EVAL.md](EVAL.md)**
+for the actual numbers from the latest run and three real bugs (one in the pipeline, two in the
+eval code itself) this harness surfaced while being built.

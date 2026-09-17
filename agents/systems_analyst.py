@@ -29,6 +29,7 @@ SCHEMA = {
                     "reasoning": {"type": "string", "description": "One-line derivation"},
                 },
                 "required": ["metric", "value", "reasoning"],
+                "additionalProperties": False,
             },
         },
         "peak_to_average_ratio": {
@@ -38,6 +39,7 @@ SCHEMA = {
         },
     },
     "required": ["assumptions", "estimates", "peak_to_average_ratio"],
+    "additionalProperties": False,
 }
 
 
@@ -51,7 +53,7 @@ def run(company: Company) -> dict:
     # Bumped to Sonnet: the eval harness scored this agent's estimates 3/5 ("scale_soundness")
     # on Haiku across every problem tested — this is the one step where numerical rigor matters
     # most and is worth the extra cost.
-    result = call_structured(
+    result, meta = call_structured(
         system=SYSTEM,
         user=user,
         tool_name="submit_scale_estimate",
@@ -61,4 +63,5 @@ def run(company: Company) -> dict:
         max_tokens=4096,
     )
     company.publish(ROLE, "scale", result)
+    company.record_call(ROLE, meta)
     return result

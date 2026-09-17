@@ -12,7 +12,15 @@ data flows through the system for the main use cases. Your job is the SHAPE of t
 happens in a later stage; describe components by role/type (e.g. "relational datastore", \
 "in-memory cache", "message queue") instead. Keep it to the components that actually matter at \
 this scale — aim for 6-10 components, the way a staff engineer would draw it on a whiteboard in \
-an interview, not an exhaustive microservices decomposition."""
+an interview, not an exhaustive microservices decomposition.
+
+Every `from`/`to` value in `connections` must exactly match, character-for-character, a `name` \
+in `components` — never a shortened or reworded version of it (e.g. if you name a component \
+"Client Gateway (Connection/Edge Service)", every connection touching it must use that exact \
+string, not "Client Gateway"). If a data flow involves an actor outside the system you're \
+designing (a client app, an end user's device, a third-party service), add it as its own \
+component too rather than referencing an undeclared name — every connection endpoint must \
+resolve to something in your own `components` list."""
 
 SCHEMA = {
     "type": "object",
@@ -31,6 +39,7 @@ SCHEMA = {
                     "responsibility": {"type": "string"},
                 },
                 "required": ["name", "type", "responsibility"],
+                "additionalProperties": False,
             },
         },
         "connections": {
@@ -43,6 +52,7 @@ SCHEMA = {
                     "purpose": {"type": "string"},
                 },
                 "required": ["from", "to", "purpose"],
+                "additionalProperties": False,
             },
         },
         "primary_data_flows": {
@@ -58,10 +68,12 @@ SCHEMA = {
                     },
                 },
                 "required": ["use_case", "steps"],
+                "additionalProperties": False,
             },
         },
     },
     "required": ["components", "connections", "primary_data_flows"],
+    "additionalProperties": False,
 }
 
 
@@ -98,7 +110,7 @@ def run(company: Company, revision_notes: str = "") -> dict:
     max_tokens = min(16000, 3072 + 700 * num_components)
     # Bumped to Sonnet: this is the core design-reasoning step in the pipeline, and the one most
     # worth paying for over Haiku.
-    result = call_structured(
+    result, meta = call_structured(
         system=SYSTEM,
         user=user,
         tool_name="submit_architecture",
@@ -108,4 +120,5 @@ def run(company: Company, revision_notes: str = "") -> dict:
         max_tokens=max_tokens,
     )
     company.publish(ROLE, "architecture", result)
+    company.record_call(ROLE, meta)
     return result

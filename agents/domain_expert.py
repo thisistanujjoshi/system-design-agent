@@ -32,6 +32,7 @@ SCHEMA = {
         },
     },
     "required": ["domain_type", "domain_constraints", "key_tradeoffs"],
+    "additionalProperties": False,
 }
 
 
@@ -42,7 +43,7 @@ def run(company: Company) -> dict:
         f"Functional requirements: {requirements.get('functional_requirements')}\n"
         f"Non-functional requirements: {requirements.get('non_functional_requirements')}"
     )
-    result = call_structured(
+    result, meta = call_structured(
         system=SYSTEM,
         user=user,
         tool_name="submit_domain_analysis",
@@ -50,4 +51,5 @@ def run(company: Company) -> dict:
         input_schema=SCHEMA,
     )
     company.publish(ROLE, "domain", result)
+    company.record_call(ROLE, meta)
     return result

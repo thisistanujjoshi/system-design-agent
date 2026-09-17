@@ -32,10 +32,12 @@ SCHEMA = {
                     "alternative_considered",
                     "why_not_alternative",
                 ],
+                "additionalProperties": False,
             },
         },
     },
     "required": ["choices"],
+    "additionalProperties": False,
 }
 
 
@@ -57,7 +59,7 @@ def run(company: Company) -> dict:
     # Bumped to Sonnet: the eval harness scored "tech_justification" 3/5 on Haiku across every
     # problem tested — genuine tradeoff reasoning ("why not the alternative") is exactly where
     # a stronger model should help most.
-    result = call_structured(
+    result, meta = call_structured(
         system=SYSTEM,
         user=user,
         tool_name="submit_tech_choices",
@@ -67,4 +69,5 @@ def run(company: Company) -> dict:
         max_tokens=max_tokens,
     )
     company.publish(ROLE, "tech", result)
+    company.record_call(ROLE, meta)
     return result

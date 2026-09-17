@@ -1,5 +1,6 @@
 import sys
 import json
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 from agents import product_manager, systems_analyst, domain_expert, architect, tech_lead, reviewer, presenter
@@ -36,6 +37,7 @@ def run_design(query: str, qa_context: str = "", verbose: bool = False) -> dict:
     calling this.
     """
     company = Company(query=query)
+    start = time.perf_counter()
 
     def log(label: str, data: dict) -> None:
         if verbose:
@@ -85,6 +87,7 @@ def run_design(query: str, qa_context: str = "", verbose: bool = False) -> dict:
     result = presenter.run(company, critique_history)
     log(f"{presenter.ROLE}: Final Explanation", result)
 
+    wall_latency_ms = (time.perf_counter() - start) * 1000
     return {
         "query": query,
         "requirements": req,
@@ -96,6 +99,23 @@ def run_design(query: str, qa_context: str = "", verbose: bool = False) -> dict:
         "hit_max_revisions": hit_max_revisions,
         "explanation": result,
         "mermaid": to_mermaid(company.read("architecture")),
+        "metrics": build_metrics(company.calls, wall_latency_ms),
+    }
+
+
+def build_metrics(calls: list, wall_latency_ms: float) -> dict:
+    """Aggregate per-call latency/token/cost metadata into pipeline-level figures. Reports both
+    wall-clock latency (what a caller actually waits for — lower than the sum below whenever
+    calls ran concurrently) and summed per-call latency (a proxy for total compute spent)."""
+    summed_latency_ms = sum(c["latency_ms"] for c in calls)
+    return {
+        "call_count": len(calls),
+        "wall_latency_ms": round(wall_latency_ms, 1),
+        "summed_latency_ms": round(summed_latency_ms, 1),
+        "total_input_tokens": sum(c["input_tokens"] for c in calls),
+        "total_output_tokens": sum(c["output_tokens"] for c in calls),
+        "total_cost_usd": round(sum(c["cost_usd"] for c in calls), 6),
+        "calls": calls,
     }
 
 
